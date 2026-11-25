@@ -136,7 +136,7 @@ var GR=["Peito","Costas","Ombros","Bíceps","Tríceps","Pernas","Glúteos","Abd�
 var DIAS=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],LONG=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
 function novoSt(){return {feito:{},plano:{},exC:[],sv:{},dr:{n:"",it:[],d:[]},rec:[],conc:{},peso:70,pend:[],dia:""}}
 // URL do seu servidor (ex.: "https://api.seudominio.com"). Vazio = modo de demonstração, com dados só neste navegador.
-var API_BASE="",REMOTO=!!API_BASE,token="",st=novoSt(),me=null,users=[],pessoas=[],trAl=[],trCo=[],sel=null,conf=null,tela="inicio",msg="",authMsg="",authEmail="",wd=new Date().getDay(),cur=0,fil="academia",grp="Todos",eqs={},q="";
+var API_BASE="https://meu-treino-api-bbaa.onrender.com",REMOTO=!!API_BASE,token="",st=novoSt(),me=null,users=[],pessoas=[],trAl=[],trCo=[],sel=null,conf=null,tela="inicio",msg="",authMsg="",authEmail="",wd=new Date().getDay(),cur=0,fil="academia",grp="Todos",eqs={},q="";
 var PLANOS=["1 mês","3 meses","1 ano"];
 try{token=localStorage.getItem("treino-token")||""}catch(e){}
 function setToken(t){token=t;try{localStorage.setItem("treino-token",t)}catch(e){}}
