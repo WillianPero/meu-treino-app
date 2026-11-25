@@ -164,7 +164,7 @@ function baseApi(){return me.papel==="admin"?"/admin/personals":"/students"}
 function meusLocal(){return users.filter(function(u){return u.papel===alvoPapel()&&(me.papel==="admin"||u.criadoPor===me.id)})}
 function achaLocal(id){var u=meusLocal().filter(function(x){return String(x.id)===String(id)})[0];if(!u){throw new Error("Cadastro não encontrado.")}return u}
 var API={
-lista:async function(){if(REMOTO){return (await http("GET",baseApi())).pessoas}return meusLocal().map(function(u){var p=pub(u),a=conclStore()[u.id]||{},b=null;Object.keys(a).forEach(function(k){if(!b||a[k].quando>b.quando){b=a[k]}});p.ultimo=b?{n:b.n,quando:b.quando}:null;return p})},
+lista:async function(){if(REMOTO){return (await http("GET",baseApi())).pessoas}return meusLocal().map(function(u){var p=pub(u),a=conclStore()[u.id]||{},b=null;Object.keys(a).forEach(function(k){if(!b||a[k].quando>b.quando){b=a[k]}});p.ultimo=b?{n:b.n,quando:b.quando}:null;if(me.papel==="admin"){p.alunos=users.filter(function(x){return x.criadoPor===u.id}).length}return p})},
 novo:async function(p){if(REMOTO){await http("POST",baseApi(),p);return}
 var em=p.email.trim().toLowerCase();
 if(!p.nome.trim()){throw new Error("Informe o nome.")}
@@ -182,9 +182,11 @@ var e=envios();(e[sid]||[]).forEach(function(z){if(z.id===wid){z.d=d}});gravaEnv
 treinos:async function(sid){if(REMOTO){return (await http("GET","/students/"+encodeURIComponent(sid)+"/workouts")).treinos}return envios()[sid]||[]},
 enviar:async function(sid,w){if(REMOTO){await http("POST","/students/"+encodeURIComponent(sid)+"/workouts",w);return}var e=envios();w.id="w"+nid();(e[sid]=e[sid]||[]).unshift(w);gravaEnvios(e)},
 apagar:async function(sid,wid){if(REMOTO){await http("DELETE","/students/"+encodeURIComponent(sid)+"/workouts/"+encodeURIComponent(wid));return}var e=envios();e[sid]=(e[sid]||[]).filter(function(z){return z.id!==wid});gravaEnvios(e)},
-excluir:async function(id){if(me.papel!=="personal"){throw new Error("Ação não permitida.")}
-if(REMOTO){await http("DELETE","/students/"+encodeURIComponent(id));return}
-var u=achaLocal(id);users=users.filter(function(x){return x!==u});gravaUsers();var e=envios();delete e[u.id];gravaEnvios(e);try{localStorage.removeItem("treino-v5:"+u.id)}catch(x){}},
+excluir:async function(id){if(me.papel!=="personal"&&me.papel!=="admin"){throw new Error("Ação não permitida.")}
+if(REMOTO){await http("DELETE",(me.papel==="admin"?"/admin/personals/":"/students/")+encodeURIComponent(id));return}
+var u=achaLocal(id),ids=[u.id];if(u.papel==="personal"){users.filter(function(x){return x.criadoPor===u.id}).forEach(function(x){ids.push(x.id)})}
+users=users.filter(function(x){return ids.indexOf(x.id)<0});gravaUsers();var e=envios(),c=conclStore();
+ids.forEach(function(i){delete e[i];delete c[i];try{localStorage.removeItem("treino-v5:"+i)}catch(x){}});gravaEnvios(e);try{localStorage.setItem("treino-concl",JSON.stringify(c))}catch(x){}},
 concluir:async function(r){if(REMOTO){await http("POST","/workouts/"+encodeURIComponent(r.w)+"/complete",{dia:r.dia,kcal:r.kcal,min:r.min,real:r.real});return}
 var c=conclStore(),a=c[me.id]=c[me.id]||{};a[r.w+"|"+r.dia]={n:r.n,quando:r.quando,kcal:r.kcal,min:r.min,real:r.real};try{localStorage.setItem("treino-concl",JSON.stringify(c))}catch(e){}},
 concluidos:async function(sid){if(REMOTO){return (await http("GET","/students/"+encodeURIComponent(sid)+"/completions")).itens}
@@ -227,8 +229,8 @@ function dias(){return '<div class="tabs">'+DIAS.map(function(d,i){var n=treinos
 function vLogin(){return '<p class="sub">Entre com o e-mail e a senha que você recebeu.</p><div class="form"><input id="lg-email" type="email" placeholder="E-mail" autocomplete="username" value="'+esc(authEmail)+'"><input id="lg-senha" type="password" placeholder="Senha" autocomplete="current-password"><button class="vid" data-a="entrar" style="border:0;cursor:pointer">Entrar</button><p class="meta">'+esc(authMsg)+'</p></div>'+(REMOTO?"":'<p class="meta">Modo de demonstração (dados só neste navegador). Administrador de teste: admin@demo.com / admin123</p>')}
 function vTopo(){var u=me,r={admin:"Administrador",personal:"Personal",aluno:"Aluno"}[u.papel],t=r;if(u.papel!=="admin"){t=r+" · "+stat(u)[0]+(u.plano?" · vence em "+dt(u.plano.ate):"")}return '<div class="row"><div><b>'+esc(u.nome)+'</b><span>'+esc(t)+'</span></div><button class="reset" data-a="sair">Sair</button></div>'}
 function vInativo(){return '<h2 class="sec">Acesso inativo</h2><p class="sub">'+(me.papel==="personal"?"Fale com o administrador para ativar ou renovar o seu plano.":"Fale com o seu personal para ativar ou renovar o seu plano.")+'</p>'}
-function pessoaRow(p,lista){var s=stat(p),id=esc(p.id);var pe=me.papel==="personal",confirma=pe&&String(conf)===String(p.id);
-return '<div class="row"><div><b>'+esc(p.nome)+'</b><span class="tag '+s[1]+'">'+s[0]+'</span>'+(pe&&hojeTreinou(p)?'<span class="tag ok">Treinou hoje</span>':'')+'<span>'+esc(p.email)+'</span><span>'+planLine(p)+'</span>'+(pe?'<span>'+ultLine(p)+'</span>':'')+'</div>'+(confirma?'<div class="stp"><span style="min-width:0;text-align:left">Excluir '+esc(p.nome)+' e todos os treinos dele? Não dá para desfazer.</span><button class="reset" data-a="excluir-ok" data-v="'+id+'">Sim, excluir</button><button class="reset" data-a="excluir-nao">Cancelar</button></div></div>':'<div class="stp"><select id="pl-'+id+'" aria-label="Plano">'+opts(p.plano&&p.plano.nome)+'</select><button class="reset" data-a="plano" data-v="'+id+'">'+(s[0]==="Ativo"?"Renovar":"Ativar")+'</button><button class="reset" data-a="ativo" data-v="'+id+'" data-x="'+(p.ativo?0:1)+'"'+(p.plano?"":" disabled")+'>'+(p.ativo?"Desativar":"Reativar")+'</button>'+(lista&&pe?'<button class="reset" data-a="abrir" data-v="'+id+'">Abrir</button>':'')+(pe?'<button class="reset" data-a="excluir" data-v="'+id+'">Excluir</button>':'')+'</div></div>')}
+function pessoaRow(p,lista){var s=stat(p),id=esc(p.id);var pe=me.papel==="personal",adm=me.papel==="admin",confirma=String(conf)===String(p.id);
+return '<div class="row"><div><b>'+esc(p.nome)+'</b><span class="tag '+s[1]+'">'+s[0]+'</span>'+(pe&&hojeTreinou(p)?'<span class="tag ok">Treinou hoje</span>':'')+'<span>'+esc(p.email)+'</span><span>'+planLine(p)+'</span>'+(pe?'<span>'+ultLine(p)+'</span>':'')+(adm&&p.alunos!=null?'<span>'+p.alunos+(p.alunos===1?' aluno':' alunos')+'</span>':'')+'</div>'+(confirma?'<div class="stp"><span style="min-width:0;text-align:left">'+(adm?'Excluir '+esc(p.nome)+(p.alunos?', '+p.alunos+(p.alunos===1?' aluno':' alunos')+' dele':'')+' e todos os treinos? Não dá para desfazer. Para só bloquear o acesso, use Desativar.':'Excluir '+esc(p.nome)+' e todos os treinos dele? Não dá para desfazer.')+'</span><button class="reset" data-a="excluir-ok" data-v="'+id+'">Sim, excluir</button><button class="reset" data-a="excluir-nao">Cancelar</button></div></div>':'<div class="stp"><select id="pl-'+id+'" aria-label="Plano">'+opts(p.plano&&p.plano.nome)+'</select><button class="reset" data-a="plano" data-v="'+id+'">'+(s[0]==="Ativo"?"Renovar":"Ativar")+'</button><button class="reset" data-a="ativo" data-v="'+id+'" data-x="'+(p.ativo?0:1)+'"'+(p.plano?"":" disabled")+'>'+(p.ativo?"Desativar":"Reativar")+'</button>'+(lista&&pe?'<button class="reset" data-a="abrir" data-v="'+id+'">Abrir</button>':'')+((pe||adm)?'<button class="reset" data-a="excluir" data-v="'+id+'">Excluir</button>':'')+'</div></div>')}
 function vGestao(){var adm=me.papel==="admin",rot=adm?"personal":"aluno",h='<h2 class="sec">'+(adm?"Personais":"Meus alunos")+'</h2>'+(msg?'<p class="meta">'+esc(msg)+'</p>':'');
 if(!pessoas.length){h+='<p class="vazio">Nenhum '+rot+' cadastrado.</p>'}
 pessoas.forEach(function(p){h+=pessoaRow(p,true)});
@@ -326,7 +328,7 @@ if(a==="abrir"){sel=v;tela="aluno";msg="";conf=null;acao(async function(){});ret
 if(a==="voltar"){tela="inicio";sel=null;msg="";conf=null;render();return}
 if(a==="excluir"){conf=v;render();return}
 if(a==="excluir-nao"){conf=null;render();return}
-if(a==="excluir-ok"){conf=null;if(String(sel)===String(v)){sel=null;tela="inicio"}acao(async function(){await API.excluir(v);return "Aluno excluído."});return}
+if(a==="excluir-ok"){conf=null;if(String(sel)===String(v)){sel=null;tela="inicio"}acao(async function(){await API.excluir(v);return me.papel==="admin"?"Personal excluído.":"Aluno excluído."});return}
 if(a==="tela-aluno"){tela="aluno";msg="";acao(async function(){});return}
 if(a==="montar"){tela="montar";msg="";st.dr={n:"",it:[],d:[]};render();return}
 if(a==="delt"){acao(async function(){await API.apagar(sel,v);return "Treino excluído."});return}
